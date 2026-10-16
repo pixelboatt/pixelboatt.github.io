@@ -1,5 +1,5 @@
-import TinyPlanet from './components/tiny-planet/TinyPlanet'
+import DitherPortfolio from './components/dither/DitherPortfolio'
 
 export default function App() {
-  return <TinyPlanet />
+  return <DitherPortfolio />
 }

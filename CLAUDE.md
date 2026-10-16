@@ -1,24 +1,20 @@
 # Portfolio implementation notes
 
-React and Vite portfolio for Parintorn Sanguanpong. The selected design is Tiny Planet A: black background, white text, lime accents, connected toy islands, and a playable Blender robot.
+React and Vite portfolio for Parintorn Sanguanpong. The selected design is Dither Orbit: a single screen with the name and contact sheet beside a raymarched, dithered WebGL shape. Clicking the shape morphs through eight themes (shape, dither algorithm, two-color palette).
 
-## Content and scene mapping
+## Content and structure
 
-- `src/data/portfolio.ts` is authoritative for projects, previews, links, experience, technologies, skills, and contact details.
-- `src/components/tiny-planet/stops.ts` maps that content to the six island stations. Keep it free of runtime Three.js imports so HTML loads before the lazy world chunk.
-- `TinyPlanet.tsx` owns accessible HTML, dialogs, navigation, motion preferences, and the no-WebGL fallback. Continuous camera progress updates refs, not React state. Content is inert between stations.
-- `world.ts` owns camera travel, input, movement, collision, and the render clock. Walk animation must follow actual displacement, including when a collider stops movement. Pause gameplay while dialogs are open and clear held keys on blur or visibility changes. Dispose event listeners, observers, renderer resources, and pending asset resources on teardown.
-- `scenery.ts` builds the islands and loads workshop GLBs with local Draco. Project screenshots and labels come from the portfolio data. Preserve `SCREEN_*`, `LABEL_*`, and `ROTOR_*` node names on export.
-- `boop.ts` animates rigid hip, knee, ankle, and shoulder joints. The planted shoe must meet the floor and move backward by the same distance the character travels forward. Keep joint names and dimensions synchronized with `art/blender/build_boop.py`. `tests/boop.test.mjs` checks the exported model and gait.
-- `tiny-planet.css` owns the selected presentation. `src/index.css` contains shared resets and Tailwind's import.
-- The previous `engine-room/` presentation remains available in source. Its data mapping and full detail component are reused by Tiny Planet.
-
-## Existing entry points
-
-Preserve `#about`, `#projects`, `#technologies`, `#experience`, and `#contact`. Individual project IDs also select their exhibit. Browser history and direct links must select the corresponding scene.
+- `src/data/portfolio.ts` is authoritative for name, title, links, and experience. `DitherPortfolio.tsx` derives its copy from it.
+- `src/components/dither/themes.ts` lists the themes. Shape indices map to the `sd()` switch in `shaders.ts`.
+- `renderer.ts` is plain WebGL1, two passes: the scene is raymarched into a 1/3-res texture, then dithered at full res. During a morph both shapes are blended and the new palette wipes out from the click point.
+- `DitherPortfolio.tsx` owns the render loop and input in one effect that only touches refs. React state changes only when a morph starts or ends. Each theme renders a full `ThemeLayer`; during a morph the incoming and outgoing layers get complementary CSS masks driven by the same radius as the shader wipe, so text and canvas change in step. Keep `BAND` equal to the shader's edge band.
+- `effects.ts` holds the sound chirp (off by default, persisted in localStorage), the favicon redraw, and the mask dither tile.
+- Motion: idle auto-cycle after 10s, drag to spin, wheel for dither grain, pinch to zoom, link hover spins the shape. Reduced motion renders a still frame and switches themes instantly. Without WebGL, layers fall back to `public/images/shape-fallback.png` tinted by the theme ink.
+- The URL hash names the theme (`#orbit`); with no hash a random theme is picked per visit.
+- `public/og.png` is a screenshot of the Orbit theme at 1200x630. Regenerate it if the layout changes.
 
 ## Validation and delivery
 
-Check both projects, rapid navigation, reduced motion, keyboard and phone movement, standing/blocked gait, jumping, narrow viewports, and renderer failure. Use the npm lockfile for reproducible installs. Build and lint commands are in `package.json`; gait checks run with `node --experimental-strip-types --test tests/boop.test.mjs`.
+Check rapid morphs (including interrupting one), reduced motion, phone layout below 820px, wheel and drag input, and renderer failure. Use the npm lockfile for reproducible installs. Build and lint commands are in `package.json`.
 
 The entry is `src/App.tsx`. `design-mocks/` contains separate studies and is not bundled into the application. GitHub Actions deploys on pushes to the configured deployment branch; publishing requires explicit user instruction.
