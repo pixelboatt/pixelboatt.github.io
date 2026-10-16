@@ -59,28 +59,12 @@ This portfolio website is built with modern web technologies:
 - **Framework**: React 19 + TypeScript
 - **Build Tool**: Vite 7
 - **Styling**: Tailwind CSS 4 + native CSS
-- **3D**: Three.js, with parallax camera travel and an articulated Blender character
+- **Graphics**: hand-written WebGL1 shaders (raymarched shapes, dithering), no 3D library
 - **Deployment**: GitHub Pages with GitHub Actions
 
-### Tiny Planet design
+### Dither Orbit design
 
-The selected A design is a playful world of six connected islands on a black background. Scroll, swipe, use the journey slider, or select a station to travel through About, both projects, Tech Stack, Experience, and Contact.
-
-Choose **Play as Boop** to explore: WASD/arrows walk, Space jumps, E inspects a nearby station, and dragging turns the camera. Phones have directional controls and a jump button. Falling returns Boop to the current island. Back to story resumes the presentation.
-
-`src/data/portfolio.ts` remains authoritative. `src/components/tiny-planet/stops.ts` maps the content to the scene. Project screens show actual screenshots; station dialogs preserve project links, complete skills, experience, and contact details. The older Engine Room presentation remains in its own directory.
-
-Reduced motion makes camera travel instant and disables ambient movement. Essential walking and jumping still respond to game controls. The render clock is capped at 45 fps, hidden tabs stop rendering, and dialogs pause the game. Portfolio details remain accessible if WebGL or model loading fails.
-
-### Blender models
-
-The workshop geometry is authored in Blender: a gyroscope core, detailed workstation, server rack, exploded tech stack, and career terminals. Screens and labels still use the portfolio data. Compressed GLB assets and their decoder are served locally.
-
-Boop has rigid hip, knee, ankle, and shoulder joints. A distance-driven walking cycle uses two-bone inverse kinematics to plant the shoes, lift the returning foot, and swing the opposite arm. Jumping uses a separate tucked pose. Rebuild with `blender --background --python art/blender/build_boop.py`; the editable file is `art/blender/boop.blend` and the runtime asset is `public/models/boop.glb`.
-
-Run the model/gait checks with `node --experimental-strip-types --test tests/boop.test.mjs` (Node 22.6+). They validate exported joints, floor contact, foot sliding, stopping, and the jump pose.
-
-See [the editable Blender source and export workflow](art/blender/README.md). On phones, the models have a dedicated viewport above the scrollable portfolio content.
+A single screen: name and contact details beside a dithered 3D shape. Click the shape to morph through eight themes (shape, dither algorithm, palette); the new theme wipes out from the click point. Drag to spin, scroll to change dither grain, pinch to zoom. Number keys and arrows switch themes, Space pauses, M toggles sound. Reduced motion shows a still frame, and a static image replaces the shape without WebGL.
 
 ### Local Development
 
