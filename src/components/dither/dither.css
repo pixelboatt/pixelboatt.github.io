@@ -27,7 +27,8 @@
 .dp-name span { display: block; width: max-content; white-space: nowrap; }
 .dp-sub, .dp-rows { background: color-mix(in srgb, var(--paper) 88%, transparent); }
 .dp-sub { font-size: 13px; line-height: 1.7; margin: 0 0 28px -6px; padding: 2px 6px; align-self: flex-start; }
-.dp-rows { border-top: 1.5px solid var(--ink); max-width: 520px; padding: 0 12px; margin: 0 -12px; }
+/* auto margins on .dp-name and .dp-rows center the block vertically, level with the shape */
+.dp-rows { border-top: 1.5px solid var(--ink); max-width: 520px; padding: 0 12px; margin: 0 -12px auto; }
 .dp-rows > div {
   display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 12px; padding: 11px 0;
   border-bottom: 1px dotted color-mix(in srgb, var(--ink) 55%, transparent); font-size: 13px; line-height: 1.55;
