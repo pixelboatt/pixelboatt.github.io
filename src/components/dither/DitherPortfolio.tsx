@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type MouseEvent } from 'react'
 import { experiences, personalInfo } from '../../data/portfolio'
-import { bayerTile, chirp, updateFavicon } from './effects'
+import { bayerTile, chirp } from './effects'
 import { createRenderer } from './renderer'
 import { MODE_LABEL, THEMES } from './themes'
 import './dither.css'
@@ -112,7 +112,7 @@ export default function DitherPortfolio() {
       time: reduce ? 4.2 : 0,
       yaw: 0, vel: 0, mx: 0, my: 0, tmx: 0, tmy: 0,
       grain: 1, zoom: 1, excite: 0, exciteTarget: 0,
-      lastInput: performance.now(), last: performance.now(), raf: 0, favicon: true,
+      lastInput: performance.now(), last: performance.now(), raf: 0,
       w: 1, h: 1,
     }
     const narrow = () => innerWidth < 820
@@ -132,13 +132,12 @@ export default function DitherPortfolio() {
       renderer?.resize(s.w, s.h)
     }
 
-    // Theme bits outside the React tree: CRT overlay, browser chrome color, URL, favicon.
+    // Theme bits outside the React tree: CRT overlay, browser chrome color, URL.
     const chrome = (i: number) => {
       if (THEMES[i].crt) lab.dataset.crt = ''
       else delete lab.dataset.crt
       document.querySelector('meta[name="theme-color"]')?.setAttribute('content', THEMES[i].paper)
       history.replaceState(null, '', `#${THEMES[i].name.toLowerCase()}`)
-      s.favicon = true
     }
 
     const render = () => {
@@ -159,11 +158,6 @@ export default function DitherPortfolio() {
         cellFrom: cellPx(s.current),
         cellTo: cellPx(m ? m.to : s.current),
       })
-      if (s.favicon && !m) {
-        s.favicon = false
-        const [cx, cy] = shapeCenter()
-        updateFavicon(canvas, cx - vr.left, cy - vr.top, Math.min(s.h * 0.8, s.w), a)
-      }
     }
 
     /** Advance the wipe and update both layers' masks so text changes exactly where the canvas does. */

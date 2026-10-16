@@ -8,7 +8,7 @@ React and Vite portfolio for Parintorn Sanguanpong. The selected design is Dithe
 - `src/components/dither/themes.ts` lists the themes. Shape indices map to the `sd()` switch in `shaders.ts`.
 - `renderer.ts` is plain WebGL1, two passes: the scene is raymarched into a 1/3-res texture, then dithered at full res. During a morph both shapes are blended and the new palette wipes out from the click point.
 - `DitherPortfolio.tsx` owns the render loop and input in one effect that only touches refs. React state changes only when a morph starts or ends. Each theme renders a full `ThemeLayer`; during a morph the incoming and outgoing layers get complementary CSS masks driven by the same radius as the shader wipe, so text and canvas change in step. Keep `BAND` equal to the shader's edge band.
-- `effects.ts` holds the sound chirp (off by default, persisted in localStorage), the favicon redraw, and the mask dither tile.
+- `effects.ts` holds the sound chirp (off by default, persisted in localStorage) and the mask dither tile. The favicon is a static transparent PNG (`public/favicon.png`).
 - Motion: idle auto-cycle after 10s, drag to spin, wheel for dither grain, pinch to zoom, link hover spins the shape. Reduced motion renders a still frame and switches themes instantly. Without WebGL, layers fall back to `public/images/shape-fallback.png` tinted by the theme ink.
 - The URL hash names the theme (`#orbit`); with no hash a random theme is picked per visit.
 - `public/og.png` is a screenshot of the Orbit theme at 1200x630. Regenerate it if the layout changes.
