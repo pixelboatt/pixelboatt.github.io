@@ -1,0 +1,70 @@
+.dp { position: fixed; inset: 0; overflow: hidden; background: #000; font-family: "Space Mono", ui-monospace, monospace; text-align: left; }
+.dp a { color: inherit; }
+.dp-view { position: absolute; inset: 0; cursor: grab; overflow: hidden; touch-action: none; }
+.dp-view.is-dragging { cursor: grabbing; }
+.dp-view canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+.dp[data-crt] .dp-view::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(#0000 0 2px, #0006 2px 3px), radial-gradient(ellipse at center, #0000 55%, #000a);
+}
+
+/* Everything themed lives in a layer. During a morph the incoming layer is revealed
+   through a mask that tracks the canvas wipe, and the outgoing one through its complement. */
+.dp-layer {
+  position: absolute; inset: 0; color: var(--ink); pointer-events: none;
+  mask-size: 100% 100%, 100% 100%, 8px 8px; mask-repeat: no-repeat, no-repeat, repeat; mask-composite: add, intersect, add;
+}
+.dp-layer[data-incoming] { mask-image: linear-gradient(#0000, #0000); }
+.dp-layer.is-solid { background: var(--paper); }
+.dp-text { position: absolute; inset: 0; padding: 32px clamp(20px, 4vw, 56px) 96px; display: flex; flex-direction: column; }
+.dp-text a, .dp-rows, .dp-dock { pointer-events: auto; }
+.dp-top { display: flex; justify-content: space-between; font-size: 11px; letter-spacing: .08em; }
+/* one line per name; JS sizes the font so the longer line fills the column */
+.dp-name {
+  font-family: "Space Grotesk", sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: -.045em; line-height: .86;
+  width: min(47vw, 820px); font-size: 96px; margin: auto 0 22px;
+}
+.dp-name span { display: block; width: max-content; white-space: nowrap; }
+.dp-sub, .dp-rows { background: color-mix(in srgb, var(--paper) 88%, transparent); }
+.dp-sub { font-size: 13px; line-height: 1.7; margin: 0 0 28px -6px; padding: 2px 6px; align-self: flex-start; }
+.dp-rows { border-top: 1.5px solid var(--ink); max-width: 520px; padding: 0 12px; margin: 0 -12px; }
+.dp-rows > div {
+  display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 12px; padding: 11px 0;
+  border-bottom: 1px dotted color-mix(in srgb, var(--ink) 55%, transparent); font-size: 13px; line-height: 1.55;
+}
+.dp-rows b { font-weight: 700; }
+.dp-rows a { text-decoration: none; border-bottom: 1px solid; }
+.dp-rows a:hover, .dp-rows a:focus-visible { background: var(--ink); color: var(--paper); outline: none; }
+.dp-lbl { position: absolute; font-size: 11px; letter-spacing: .08em; background: var(--paper); padding: 4px 8px; border: 1px solid var(--ink); white-space: nowrap; }
+.dp-lbl.tl { right: 16px; top: 56px; }
+.dp-lbl.tr { right: 16px; top: 88px; }
+.dp-lbl.bl { right: 16px; bottom: 24px; }
+.dp-fallback {
+  position: absolute; left: calc(78% - 40vh); top: 10vh; width: 80vh; height: 80vh; background: var(--ink);
+  mask: url(/images/shape-fallback.png) center / contain no-repeat;
+}
+
+.dp-dock { position: absolute; left: clamp(20px, 4vw, 56px); bottom: 26px; display: flex; align-items: center; gap: 14px; }
+.dp-dots { display: flex; gap: 6px; }
+.dp-dots button {
+  width: 14px; height: 14px; border-radius: 50%; background: linear-gradient(135deg, var(--a) 50%, var(--b) 50%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ink) 40%, transparent); transition: transform .2s;
+}
+.dp-dots button[aria-current="true"] { transform: scale(1.35); box-shadow: 0 0 0 1.5px var(--ink); }
+.dp-dots button:focus-visible, .dp-snd:focus-visible { outline: 1.5px solid var(--ink); outline-offset: 3px; }
+.dp-snd {
+  display: flex; align-items: center; gap: 6px; font-size: 11px; letter-spacing: .08em;
+  padding: 3px 8px 3px 6px; border: 1px solid var(--ink); background: var(--paper); cursor: pointer;
+}
+.dp-snd svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: square; }
+
+@media (max-width: 819px) {
+  .dp-view { bottom: auto; height: 46vh; }
+  .dp-text { top: 46vh; padding-top: 20px; border-top: 1.5px solid var(--ink); background: var(--paper); overflow: auto; pointer-events: auto; }
+  .dp-name { width: 100%; margin-top: 0; }
+  .dp-lbl.tl { left: 16px; right: auto; top: 16px; }
+  .dp-lbl.tr { left: 16px; right: auto; top: 48px; }
+  .dp-lbl.bl { left: 16px; right: auto; top: 80px; bottom: auto; }
+  .dp-dock { left: 16px; right: 16px; bottom: auto; top: calc(46vh - 40px); justify-content: space-between; gap: 10px; }
+  .dp-fallback { left: calc(50% - 17vh); top: 6vh; width: 34vh; height: 34vh; }
+}
