@@ -1,5 +1,3 @@
-import type { Theme } from './themes'
-
 let audio: AudioContext | null = null
 
 /** Short 1-bit chirp for a theme change; pitch rises with the theme index. */
@@ -41,40 +39,3 @@ export const bayerTile = (on: boolean) =>
       (v < 8) === on ? `<rect x='${(i % 4) * 2}' y='${(i >> 2) * 2}' width='2' height='2'/>` : '',
     ).join('')}</svg>`,
   )}")`
-
-let favicon: HTMLLinkElement | null = null
-const work = typeof document === 'undefined' ? null : document.createElement('canvas')
-
-/**
- * Redraw the tab icon as a 32px dithered crop of the canvas around (cx, cy).
- * Must run right after a draw, in the same task, while the WebGL buffer is still readable.
- */
-export function updateFavicon(src: HTMLCanvasElement, cx: number, cy: number, side: number, theme: Theme) {
-  if (!work) return
-  const n = 32
-  work.width = work.height = n
-  const ctx = work.getContext('2d', { willReadFrequently: true })
-  if (!ctx) return
-  ctx.imageSmoothingEnabled = true
-  ctx.drawImage(src, cx - side / 2, cy - side / 2, side, side, 0, 0, n, n)
-  const img = ctx.getImageData(0, 0, n, n)
-  const hex = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16))
-  const ink = hex(theme.ink), paper = hex(theme.paper)
-  const span = ink.reduce((s, v, i) => s + (v - paper[i]) ** 2, 0) || 1
-  for (let i = 0; i < n * n; i++) {
-    const p = img.data.subarray(i * 4, i * 4 + 4)
-    // how far this averaged pixel sits between paper and ink, then re-dither it
-    const k = ink.reduce((s, v, j) => s + (p[j] - paper[j]) * (v - paper[j]), 0) / span
-    const c = k * 1.4 > (BAYER4[((i % n) % 4) + (((i / n) | 0) % 4) * 4] + 0.5) / 16 ? ink : paper
-    p.set([...c, 255])
-  }
-  ctx.putImageData(img, 0, 0)
-  if (!favicon) {
-    document.querySelectorAll('link[rel~="icon"]').forEach((l) => l.remove())
-    favicon = document.createElement('link')
-    favicon.rel = 'icon'
-    favicon.type = 'image/png'
-    document.head.appendChild(favicon)
-  }
-  favicon.href = work.toDataURL('image/png')
-}
