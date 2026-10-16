@@ -22,8 +22,8 @@ export interface Frame {
   /** Shape blend 0..1; 0 renders `from` only. */
   morph: number
   distance: number
-  /** Push the shape right so it sits beside the text column. */
-  offset: boolean
+  /** Shape position in view-height units from the center (x right, y up). */
+  offset: [number, number]
   /** Wipe origin in canvas px, origin bottom-left. */
   wipeCenter: [number, number]
   /** Pixels inside this radius use `to`'s palette and dither. */
@@ -115,7 +115,7 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer | null {
       gl.uniform1i(u.uB, f.to.shape)
       gl.uniform1f(u.uK, f.morph)
       gl.uniform1f(u.uDist, f.distance)
-      gl.uniform1f(u.uOff, f.offset ? (0.45 * (bw / bh)) / 1.6 : 0)
+      gl.uniform2f(u.uOff, ...f.offset)
       gl.drawArrays(gl.TRIANGLES, 0, 3)
 
       u = dither.u

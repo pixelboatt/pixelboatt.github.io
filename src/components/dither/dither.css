@@ -1,4 +1,5 @@
-.dp { position: fixed; inset: 0; overflow: hidden; background: #000; font-family: "Space Mono", ui-monospace, monospace; text-align: left; }
+/* --page is the current theme paper, set on <html>. iOS Safari tints its bars from it, not from theme-color. */
+.dp { position: fixed; inset: 0; overflow: hidden; background: var(--page, #000); font-family: "Space Mono", ui-monospace, monospace; text-align: left; }
 .dp a { color: inherit; }
 .dp-view { position: absolute; inset: 0; cursor: grab; overflow: hidden; touch-action: none; }
 .dp-view.is-dragging { cursor: grabbing; }
@@ -16,6 +17,8 @@
 }
 .dp-layer[data-incoming] { mask-image: linear-gradient(#0000, #0000); }
 .dp-layer.is-solid { background: var(--paper); }
+/* Touch devices wipe with a clip-path instead (set inline); a composited layer keeps it from repainting the text every frame. */
+.dp-layer.is-clip { will-change: transform; }
 .dp-text { position: absolute; inset: 0; padding: 32px clamp(20px, 4vw, 56px) 96px; display: flex; flex-direction: column; }
 .dp-text a, .dp-rows, .dp-dock { pointer-events: auto; }
 .dp-top { display: flex; justify-content: space-between; font-size: 11px; letter-spacing: .08em; }
@@ -40,6 +43,11 @@
 .dp-lbl.tl { right: 16px; top: 56px; }
 .dp-lbl.tr { right: 16px; top: 88px; }
 .dp-lbl.bl { right: 16px; bottom: 24px; }
+/* Edge strips Safari 26+ tints its bars from; DitherPortfolio appends them to <body> and recolors them with the wipe.
+   They must stay hit-testable (no pointer-events: none) and taller than 10px, or Safari looks past them. */
+.dp-tint { position: fixed; left: 0; right: 0; height: 12px; }
+.dp-tint.top { top: 0; }
+.dp-tint.bottom { bottom: 0; }
 .dp-fallback {
   position: absolute; left: calc(78% - 40vh); top: 10vh; width: 80vh; height: 80vh; background: var(--ink);
   mask: url(/images/shape-fallback.png) center / contain no-repeat;
@@ -59,13 +67,42 @@
 }
 .dp-snd svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: square; }
 
+/* Phone layout (DitherPortfolio renders it below 820px): full-bleed shape, name over it,
+   contact rows in a bottom sheet. --sheet (0 peeking, 1 open) is set on .dp by the input handler. */
 @media (max-width: 819px) {
-  .dp-view { bottom: auto; height: 46vh; }
-  .dp-text { top: 46vh; padding-top: 20px; border-top: 1.5px solid var(--ink); background: var(--paper); overflow: auto; pointer-events: auto; }
-  .dp-name { width: 100%; margin-top: 0; }
-  .dp-lbl.tl { left: 16px; right: auto; top: 16px; }
-  .dp-lbl.tr { left: 16px; right: auto; top: 48px; }
-  .dp-lbl.bl { left: 16px; right: auto; top: 80px; bottom: auto; }
-  .dp-dock { left: 16px; right: 16px; bottom: auto; top: calc(46vh - 40px); justify-content: space-between; gap: 10px; }
-  .dp-fallback { left: calc(50% - 17vh); top: 6vh; width: 34vh; height: 34vh; }
+  .dp { touch-action: none; --peek: 76px; }
+  .dp-view { opacity: calc(1 - .6 * var(--sheet, 0)); transition: opacity .35s; }
+  .dp-fallback { left: calc(50% - 20svh); top: 12svh; width: 40svh; height: 40svh; }
+}
+.dp-ptop {
+  position: absolute; left: 16px; right: 16px; top: calc(14px + env(safe-area-inset-top));
+  display: grid; grid-template-columns: 1fr auto; row-gap: 4px; font-size: 11px; letter-spacing: .08em;
+}
+.dp-pmode { grid-column: 1 / -1; opacity: .7; }
+.dp-hero {
+  position: absolute; left: 16px; right: 16px; bottom: calc(var(--peek) + 20px + env(safe-area-inset-bottom));
+  transition: opacity .35s; opacity: calc(1 - var(--sheet, 0));
+}
+.dp-hero .dp-name { width: 100%; margin: 0 0 14px; }
+.dp-hero .dp-sub { margin: 0 0 14px -6px; font-size: clamp(10px, 3.1vw, 12px); }
+.dp-pdock { display: flex; justify-content: space-between; align-items: center; font-size: 11px; letter-spacing: .08em; pointer-events: auto; }
+.dp.is-sheet-open .dp-pdock { pointer-events: none; }
+.dp-sheet {
+  position: absolute; left: 0; right: 0; bottom: 0; max-height: calc(100% - 72px - env(safe-area-inset-top));
+  padding: 0 16px calc(16px + env(safe-area-inset-bottom)); background: var(--paper); border-top: 1.5px solid var(--ink);
+  pointer-events: auto; overflow: hidden; touch-action: pan-y; overscroll-behavior: contain;
+  transform: translateY(calc((1 - var(--sheet, 0)) * (100% - var(--peek) - env(safe-area-inset-bottom))));
+  transition: transform .4s cubic-bezier(.2, .8, .2, 1);
+}
+.dp.is-sheet-open .dp-sheet { overflow: auto; }
+.dp.is-sheet-drag .dp-sheet, .dp.is-sheet-drag .dp-view, .dp.is-sheet-drag .dp-hero { transition: none; }
+.dp-peek { height: var(--peek); padding-top: 10px; touch-action: none; cursor: grab; }
+.dp-grip { width: 40px; height: 4px; margin: 0 auto 14px; background: var(--ink); }
+.dp-arrow { display: inline-block; transition: transform .35s; }
+.dp.is-sheet-open .dp-arrow { transform: rotate(180deg); }
+.dp-sheet .dp-rows { max-width: none; margin: 0; padding: 0; background: none; }
+.dp-sheet .dp-rows > div { grid-template-columns: 32px minmax(0, 1fr); font-size: 12px; }
+.dp-sheet-foot { display: flex; justify-content: flex-end; padding-top: 14px; }
+@media (prefers-reduced-motion: reduce) {
+  .dp-sheet, .dp-view, .dp-hero, .dp-arrow { transition: none; }
 }
