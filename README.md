@@ -84,7 +84,7 @@ npm run preview
 
 ### Deployment
 
-This site is automatically deployed to GitHub Pages via GitHub Actions on every push to the `master` branch.
+This site is automatically deployed to GitHub Pages via GitHub Actions on every push to the `master` branch. To deploy to the nginx host behind parintorn.com, run `npm run deploy:vm` (add `-- --dry-run` to preview the sync).
 
 ## 📫 Get in Touch
 
