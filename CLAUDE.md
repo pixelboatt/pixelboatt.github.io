@@ -17,4 +17,4 @@ React and Vite portfolio for Parintorn Sanguanpong. The selected design is Dithe
 
 Check rapid morphs (including interrupting one), reduced motion, phone layout below 820px, wheel and drag input, and renderer failure. Use the npm lockfile for reproducible installs. Build and lint commands are in `package.json`.
 
-The entry is `src/App.tsx`. `design-mocks/` contains separate studies and is not bundled into the application. GitHub Actions deploys on pushes to the configured deployment branch; publishing requires explicit user instruction.
+The entry is `src/App.tsx`. `design-mocks/` contains separate studies and is not bundled into the application. GitHub Actions deploys to GitHub Pages on pushes to the configured deployment branch. `npm run deploy:vm` (`scripts/deploy-vm.sh`) syncs `dist/` to the nginx host for parintorn.com, whose CSP only allows same-origin fonts and styles. Publishing either way requires explicit user instruction.
