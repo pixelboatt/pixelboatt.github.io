@@ -292,10 +292,14 @@ export default function DitherPortfolio() {
       if (into) into.style.maskImage = `radial-gradient(circle at ${x}px ${y}px,#000 ${a}px,#0000 ${a}px),${band},${bayerTile(true)}`
       if (from) from.style.maskImage = `radial-gradient(circle at ${x}px ${y}px,#0000 ${b}px,#000 ${b}px),${band},${bayerTile(false)}`
     }
-    /** Remember which control in layer `theme` has focus, before that layer unmounts. */
+    /**
+     * Remember which control in layer `theme` has focus, before that layer unmounts. A miss keeps
+     * an index saved earlier in the same batch, e.g. by `settle()` right before an instant switch.
+     */
     const keepFocus = (theme: number) => {
       const all = layerEls.current.get(theme)?.querySelectorAll(FOCUSABLE)
-      focusAt.current = all ? Array.prototype.indexOf.call(all, document.activeElement) : -1
+      const i = all ? Array.prototype.indexOf.call(all, document.activeElement) : -1
+      if (i >= 0) focusAt.current = i
     }
     const finish = () => {
       const m = s.morph
@@ -586,7 +590,7 @@ export default function DitherPortfolio() {
       if (reduce || pausedRef.current || s.morph || down || s.sheet > 0 || document.hidden || performance.now() - s.lastInput < IDLE_MS) return
       // the pointer resting on, or keyboard focus in, the controls is someone reading, not idle;
       // :focus-visible so a dot left focused by a mouse click does not stop the cycle for good
-      if (lab.querySelector('.dp-rows:hover, .dp-dock:hover, .dp-rows :focus-visible, .dp-dock :focus-visible')) return
+      if (lab.querySelector('.dp-rows:hover, .dp-dock:hover, .dp-pdock:hover, .dp-rows :focus-visible, .dp-dock :focus-visible, .dp-pdock :focus-visible')) return
       go(next(s.current), ...shapeCenter(), false)
     }, 500)
 
