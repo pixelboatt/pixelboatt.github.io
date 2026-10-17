@@ -12,10 +12,13 @@ const BAND = 26
 /** Radius that turns the circular wipe into a practically straight vertical edge (phone swipe). */
 const LINE_R = 20_000
 const SOUND_KEY = 'dp-sound'
-/** Phone layout: full-bleed shape, name over it, contact rows in a bottom sheet, swipe to change theme. */
-const PHONE = '(max-width: 819px)'
+/** Phone layout: full-bleed shape, name over it, contact rows in a bottom sheet, swipe to change theme.
+ *  Also short touch screens (phones in landscape), where the desktop column would overflow. Keep in sync with dither.css. */
+const PHONE = '(max-width: 819px), (pointer: coarse) and (max-height: 500px)'
 /** Touch or narrow screens wipe text with a composited clip-path instead of the dithered mask. */
 const COMPACT = '(max-width: 819px), (pointer: coarse)'
+/** Controls in a theme layer; every layer renders the same ones in the same order. */
+const FOCUSABLE = 'a[href], button'
 
 const pad = (n: number) => String(n).padStart(2, '0')
 const lerp = (a: number, b: number, k: number) => a + (b - a) * k
@@ -55,11 +58,20 @@ function useMedia(query: string) {
     () => matchMedia(query).matches,
   )
 }
-/** Largest font size where the longer of the two name lines still fits the column. */
+/** Largest font size where the longer of the two name lines still fits the column.
+ *  In the phone layout the name sits above the bottom sheet, so on short screens it is also
+ *  capped to the height between its bottom edge and `.dp-ptop`. */
 function fitName(el: HTMLElement) {
   el.style.fontSize = '100px'
   const widest = Math.max(...Array.from(el.children, (c) => c.getBoundingClientRect().width))
-  el.style.fontSize = `${Math.min(180, (100 * el.clientWidth) / widest)}px`
+  let size = Math.min(180, (100 * el.clientWidth) / widest)
+  const top = el.closest('.dp-layer')?.querySelector('.dp-ptop')
+  if (top) {
+    // the hero is anchored to the bottom, so the name's bottom edge stays put and its height scales with the font
+    const box = el.getBoundingClientRect()
+    size = Math.min(size, (100 * (box.bottom - top.getBoundingClientRect().bottom - 12)) / box.height)
+  }
+  el.style.fontSize = `${size}px`
 }
 
 interface LayerState {
@@ -105,7 +117,8 @@ export default function DitherPortfolio() {
   const [flash, setFlash] = useState<string | null>(null)
   /** Mirrors the phone sheet once it settles open or closed, for aria-expanded and inert. */
   const [sheetOpen, setSheetOpen] = useState(false)
-  const [hasGL] = useState(() => !!document.createElement('canvas').getContext('webgl'))
+  /** Set once the renderer can't be created (no WebGL, shader or precision failure); layers show the static shape. */
+  const [solid, setSolid] = useState(false)
   const compact = useMedia(COMPACT)
   const phone = useMedia(PHONE)
 
@@ -116,6 +129,8 @@ export default function DitherPortfolio() {
   const controls = useRef<Controls | null>(null)
   const soundRef = useRef(sound)
   const pausedRef = useRef(paused)
+  /** Index among the outgoing layer's links and buttons that had focus, restored in the layer that replaces it; -1 for none. */
+  const focusAt = useRef(-1)
 
   useEffect(() => {
     soundRef.current = sound
@@ -138,10 +153,23 @@ export default function DitherPortfolio() {
     if (into) into.scrollTop = sheet(layers[0].theme)?.scrollTop ?? 0
   }, [layers])
 
-  useEffect(() => {
+  // Unmounting the outgoing layer drops keyboard focus to <body>; move it to the same control in the current layer.
+  useLayoutEffect(() => {
+    const i = focusAt.current
+    if (i < 0) return
+    focusAt.current = -1
+    const el = layerEls.current.get(layers[0].theme)?.querySelectorAll<HTMLElement>(FOCUSABLE)[i]
+    if (el && el !== document.activeElement) el.focus({ preventScroll: true })
+  }, [layers])
+
+  // A layout effect so the first painted frame already has the page color and a rendered canvas.
+  useLayoutEffect(() => {
     const lab = labRef.current!, view = viewRef.current!, canvas = canvasRef.current!
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
-    const renderer = hasGL ? createRenderer(canvas) : null
+    let renderer = createRenderer(canvas)
+    // whether WebGL works is only known once the real canvas tries; this layout effect re-renders before paint
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (!renderer) setSolid(true)
     const s = {
       current: initial,
       morph: null as Morph | null,
@@ -201,10 +229,8 @@ export default function DitherPortfolio() {
       tint('top', THEMES[i].paper)
       tint('bottom', THEMES[i].paper)
     }
-    // Theme bits outside the React tree: CRT overlay, browser chrome color, URL.
+    // Theme bits outside the React tree: browser chrome color, URL.
     const chrome = (i: number) => {
-      if (THEMES[i].crt) lab.dataset.crt = ''
-      else delete lab.dataset.crt
       pageColor(i)
       history.replaceState(null, '', `#${THEMES[i].name.toLowerCase()}`)
     }
@@ -243,21 +269,21 @@ export default function DitherPortfolio() {
         // ease-out: the wave lands on the far corner exactly at p=1
         m.r = lerp(-60, m.far + BAND + 4, Math.sin((m.p * Math.PI) / 2))
       }
-      lab.toggleAttribute('data-crt', !!THEMES[m.p > 0.5 ? m.to : s.current].crt)
       const x = m.x - r.left, y = m.y - r.top
       const was = THEMES[s.current].paper, will = THEMES[m.to].paper
       tint('top', mixHex(was, will, covered(x, y, m.r, 0, r.width)))
       tint('bottom', mixHex(was, will, covered(x, y, m.r, r.height, r.width)))
       const into = layerEls.current.get(m.to), from = layerEls.current.get(s.current)
       if (m.clip) {
-        // Hard-edged circle and its complement: the compositor clips them without repainting the text.
-        const c = Math.max(0, m.r)
+        // Hard-edged circles: the compositor clips them without repainting the text. They overlap
+        // across the canvas's dithered band, so both themes' text shows there, as with the mask.
+        const c = Math.max(0, m.r + BAND), hole = Math.max(0, m.r - BAND)
         if (into) {
           into.style.maskImage = 'none'
           into.style.clipPath = `circle(${c}px at ${x}px ${y}px)`
         }
-        if (from) from.style.clipPath = c > 0
-          ? `path(evenodd,"M0 0H${r.width}V${r.height}H0Z M${x - c} ${y}a${c} ${c} 0 1 0 ${2 * c} 0a${c} ${c} 0 1 0 ${-2 * c} 0Z")`
+        if (from) from.style.clipPath = hole > 0
+          ? `path(evenodd,"M0 0H${r.width}V${r.height}H0Z M${x - hole} ${y}a${hole} ${hole} 0 1 0 ${2 * hole} 0a${hole} ${hole} 0 1 0 ${-2 * hole} 0Z")`
           : 'none'
         return
       }
@@ -266,10 +292,20 @@ export default function DitherPortfolio() {
       if (into) into.style.maskImage = `radial-gradient(circle at ${x}px ${y}px,#000 ${a}px,#0000 ${a}px),${band},${bayerTile(true)}`
       if (from) from.style.maskImage = `radial-gradient(circle at ${x}px ${y}px,#0000 ${b}px,#000 ${b}px),${band},${bayerTile(false)}`
     }
+    /**
+     * Remember which control in layer `theme` has focus, before that layer unmounts. A miss keeps
+     * an index saved earlier in the same batch, e.g. by `settle()` right before an instant switch.
+     */
+    const keepFocus = (theme: number) => {
+      const all = layerEls.current.get(theme)?.querySelectorAll(FOCUSABLE)
+      const i = all ? Array.prototype.indexOf.call(all, document.activeElement) : -1
+      if (i >= 0) focusAt.current = i
+    }
     const finish = () => {
       const m = s.morph
       if (!m) return
       s.morph = null
+      keepFocus(s.current)
       s.current = m.to
       const el = layerEls.current.get(m.to)
       // 'none', not '': until React drops data-incoming, the CSS rule for it would hide the layer for a frame
@@ -336,6 +372,7 @@ export default function DitherPortfolio() {
       s.lastInput = performance.now()
       if (withSound && soundRef.current) chirp(to, THEMES.length)
       if (reduce || !renderer) {
+        keepFocus(s.current)
         s.current = to
         setLayers([{ theme: to, incoming: false }])
         chrome(to)
@@ -350,7 +387,8 @@ export default function DitherPortfolio() {
       setLayers([{ theme: s.current, incoming: false }, { theme: to, incoming: true }])
       kick()
     }
-    const target = () => s.morph?.to ?? s.current
+    // a morph springing back (goal 0) is being dropped, so the next theme counts from the current one
+    const target = () => (s.morph && s.morph.goal !== 0 ? s.morph.to : s.current)
     controls.current = {
       go(to, x, y) {
         go(to, x, y, true, isPhone() ? (to > s.current ? 1 : -1) : 0)
@@ -381,20 +419,23 @@ export default function DitherPortfolio() {
 
     // Desktop: click to morph from the click point, drag to spin with inertia.
     // Phone: swipe sideways to drag a theme in, tap to sweep to the next one, drag the sheet handle.
-    type Down = { x: number; y: number; lx: number; lt: number; vx: number; moved: number; mode: 'view' | 'swipe' | 'sheet'; sheet0: number; travel: number }
+    // One primary pointer per gesture; events from any other pointer are ignored until it ends.
+    type Down = { id: number; x: number; y: number; lx: number; lt: number; vx: number; moved: number; mode: 'view' | 'swipe' | 'sheet'; sheet0: number; travel: number }
     let down: Down | null = null
     const seen = () => { s.lastInput = performance.now() }
     const onDown = (e: PointerEvent) => {
+      // left button or a first touch only: right/middle clicks and extra fingers never start a gesture
+      if (down || !e.isPrimary || e.button !== 0) return
       const el = e.target as Element
       const grab = el.closest('.dp-grab')
-      if (!grab && el.closest('a, button, .dp-rows, .dp-sheet')) return
-      down = { x: e.clientX, y: e.clientY, lx: e.clientX, lt: e.timeStamp, vx: 0, moved: 0, mode: grab ? 'sheet' : 'view', sheet0: s.sheet, travel: grab ? sheetTravel() : 1 }
+      if (!grab && el.closest('a, button, .dp-rows, .dp-sheet, .dp-dock')) return
+      down = { id: e.pointerId, x: e.clientX, y: e.clientY, lx: e.clientX, lt: e.timeStamp, vx: 0, moved: 0, mode: grab ? 'sheet' : 'view', sheet0: s.sheet, travel: grab ? sheetTravel() : 1 }
       lab.setPointerCapture(e.pointerId)
       if (!grab) view.classList.add('is-dragging')
       seen()
     }
     const onDrag = (e: PointerEvent) => {
-      if (!down) return
+      if (down?.id !== e.pointerId) return
       const dx = e.clientX - down.lx
       down.vx = dx / Math.max(1, e.timeStamp - down.lt)
       down.lx = e.clientX
@@ -422,10 +463,10 @@ export default function DitherPortfolio() {
       }
     }
     const onUp = (e: PointerEvent) => {
-      view.classList.remove('is-dragging')
       const d = down
+      if (d?.id !== e.pointerId) return
+      view.classList.remove('is-dragging')
       down = null
-      if (!d) return
       if (d.mode === 'sheet') {
         // a tap toggles; a drag past a fifth of the way flips it, otherwise it snaps back
         const flip = d.moved <= 6 || Math.abs(s.sheet - d.sheet0) > 0.2
@@ -452,7 +493,8 @@ export default function DitherPortfolio() {
       if (isPhone() && s.sheet > 0.5) setSheet(0, true)
       else go(next(target()), e.clientX, e.clientY)
     }
-    const onCancel = () => {
+    const onCancel = (e: PointerEvent) => {
+      if (down?.id !== e.pointerId) return
       view.classList.remove('is-dragging')
       if (down?.mode === 'swipe' && s.morph?.held) {
         s.morph.held = false
@@ -482,7 +524,8 @@ export default function DitherPortfolio() {
     }
     const onKey = (e: KeyboardEvent) => {
       seen()
-      if (e.metaKey || e.ctrlKey || e.altKey) return
+      // holding a key would restart the morph (flashing light and dark themes) or flip a toggle on every repeat
+      if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return
       const n = Number(e.key)
       if (n >= 1 && n <= THEMES.length) controls.current?.go(n - 1)
       else if (e.key === 'ArrowRight') go(next(target()), undefined, undefined, true, isPhone() ? 1 : 0)
@@ -526,10 +569,30 @@ export default function DitherPortfolio() {
     addEventListener('keydown', onKey)
     addEventListener('resize', onResize)
     document.addEventListener('visibilitychange', onVisible)
+    // The browser can drop the context (iOS after app switching); preventDefault lets it be restored.
+    const onLost = (e: Event) => {
+      e.preventDefault()
+      renderer = null
+    }
+    const onRestored = () => {
+      renderer = createRenderer(canvas)
+      if (!renderer) return setSolid(true)
+      s.w = s.h = 0
+      size()
+      render()
+      kick()
+    }
+    canvas.addEventListener('webglcontextlost', onLost)
+    canvas.addEventListener('webglcontextrestored', onRestored)
 
     // Nobody touched anything for a while: morph on our own, silently.
     const idle = window.setInterval(() => {
       if (reduce || pausedRef.current || s.morph || down || s.sheet > 0 || document.hidden || performance.now() - s.lastInput < IDLE_MS) return
+      // the pointer resting on, or keyboard focus in, the controls is someone reading, not idle;
+      // :focus-visible so a dot left focused by a mouse click does not stop the cycle for good;
+      // phone dock :hover only with a hover-capable pointer, since a tap leaves it stuck on touch screens
+      const pdockHover = matchMedia('(hover: hover)').matches ? ', .dp-pdock:hover' : ''
+      if (lab.querySelector('.dp-rows:hover, .dp-dock:hover, .dp-rows :focus-visible, .dp-dock :focus-visible, .dp-pdock :focus-visible' + pdockHover)) return
       go(next(s.current), ...shapeCenter(), false)
     }, 500)
 
@@ -553,11 +616,13 @@ export default function DitherPortfolio() {
       removeEventListener('keydown', onKey)
       removeEventListener('resize', onResize)
       document.removeEventListener('visibilitychange', onVisible)
+      canvas.removeEventListener('webglcontextlost', onLost)
+      canvas.removeEventListener('webglcontextrestored', onRestored)
       renderer?.dispose()
       tints.forEach((el) => el.remove())
       controls.current = null
     }
-  }, [initial, hasGL])
+  }, [initial])
 
   const hint = flash ?? (paused ? 'PAUSED · SPACE TO PLAY' : phone ? '← SWIPE →' : compact ? 'TAP TO MORPH · DRAG TO SPIN' : 'CLICK TO MORPH · DRAG TO SPIN · SCROLL FOR GRAIN')
   const toggleSound = () => {
@@ -576,7 +641,7 @@ export default function DitherPortfolio() {
           key={theme}
           theme={theme}
           incoming={incoming}
-          solid={!hasGL}
+          solid={solid}
           clip={compact}
           phone={phone}
           sheetOpen={sheetOpen}
@@ -705,6 +770,10 @@ function ThemeLayer({ theme, incoming, solid, clip, phone, sheetOpen, hint, soun
       style={{ '--ink': t.ink, '--paper': t.paper } as CSSProperties}
     >
       {solid && <div className="dp-fallback" />}
+      {/* inside the layer so the wipe masks it with the rest of the theme */}
+      {t.crt && !solid && <div className="dp-crt" />}
+      {/* dims the shape under the open sheet in this theme's paper, so the wipe recolors it too */}
+      {phone && !solid && <div className="dp-dim" />}
       {phone ? (
         <>
           <div className="dp-ptop">
