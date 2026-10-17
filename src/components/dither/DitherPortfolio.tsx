@@ -138,7 +138,8 @@ export default function DitherPortfolio() {
     if (into) into.scrollTop = sheet(layers[0].theme)?.scrollTop ?? 0
   }, [layers])
 
-  useEffect(() => {
+  // A layout effect so the first painted frame already has the page color and a rendered canvas.
+  useLayoutEffect(() => {
     const lab = labRef.current!, view = viewRef.current!, canvas = canvasRef.current!
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
     const renderer = hasGL ? createRenderer(canvas) : null
@@ -201,10 +202,8 @@ export default function DitherPortfolio() {
       tint('top', THEMES[i].paper)
       tint('bottom', THEMES[i].paper)
     }
-    // Theme bits outside the React tree: CRT overlay, browser chrome color, URL.
+    // Theme bits outside the React tree: browser chrome color, URL.
     const chrome = (i: number) => {
-      if (THEMES[i].crt) lab.dataset.crt = ''
-      else delete lab.dataset.crt
       pageColor(i)
       history.replaceState(null, '', `#${THEMES[i].name.toLowerCase()}`)
     }
@@ -243,7 +242,6 @@ export default function DitherPortfolio() {
         // ease-out: the wave lands on the far corner exactly at p=1
         m.r = lerp(-60, m.far + BAND + 4, Math.sin((m.p * Math.PI) / 2))
       }
-      lab.toggleAttribute('data-crt', !!THEMES[m.p > 0.5 ? m.to : s.current].crt)
       const x = m.x - r.left, y = m.y - r.top
       const was = THEMES[s.current].paper, will = THEMES[m.to].paper
       tint('top', mixHex(was, will, covered(x, y, m.r, 0, r.width)))
@@ -705,6 +703,8 @@ function ThemeLayer({ theme, incoming, solid, clip, phone, sheetOpen, hint, soun
       style={{ '--ink': t.ink, '--paper': t.paper } as CSSProperties}
     >
       {solid && <div className="dp-fallback" />}
+      {/* inside the layer so the wipe masks it with the rest of the theme */}
+      {t.crt && !solid && <div className="dp-crt" />}
       {phone ? (
         <>
           <div className="dp-ptop">

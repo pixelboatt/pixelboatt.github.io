@@ -4,8 +4,8 @@
 .dp-view { position: absolute; inset: 0; cursor: grab; overflow: hidden; touch-action: none; }
 .dp-view.is-dragging { cursor: grabbing; }
 .dp-view canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
-.dp[data-crt] .dp-view::after {
-  content: ""; position: absolute; inset: 0; pointer-events: none;
+.dp-crt {
+  position: absolute; inset: 0;
   background: repeating-linear-gradient(#0000 0 2px, #0006 2px 3px), radial-gradient(ellipse at center, #0000 55%, #000a);
 }
 
@@ -71,7 +71,7 @@
    contact rows in a bottom sheet. --sheet (0 peeking, 1 open) is set on .dp by the input handler. */
 @media (max-width: 819px) {
   .dp { touch-action: none; --peek: 76px; }
-  .dp-view { opacity: calc(1 - .6 * var(--sheet, 0)); transition: opacity .35s; }
+  .dp-view, .dp-crt { opacity: calc(1 - .6 * var(--sheet, 0)); transition: opacity .35s; }
   .dp-fallback { left: calc(50% - 20svh); top: 12svh; width: 40svh; height: 40svh; }
 }
 .dp-ptop {
@@ -95,7 +95,7 @@
   transition: transform .4s cubic-bezier(.2, .8, .2, 1);
 }
 .dp.is-sheet-open .dp-sheet { overflow: auto; }
-.dp.is-sheet-drag .dp-sheet, .dp.is-sheet-drag .dp-view, .dp.is-sheet-drag .dp-hero { transition: none; }
+.dp.is-sheet-drag .dp-sheet, .dp.is-sheet-drag .dp-view, .dp.is-sheet-drag .dp-crt, .dp.is-sheet-drag .dp-hero { transition: none; }
 .dp-peek { display: block; width: 100%; height: var(--peek); padding-top: 10px; text-align: left; touch-action: none; cursor: grab; }
 .dp-peek:focus-visible { outline: 1.5px solid var(--ink); outline-offset: -4px; }
 .dp-grip { width: 40px; height: 4px; margin: 0 auto 14px; background: var(--ink); }
@@ -105,5 +105,5 @@
 .dp-sheet .dp-rows > div { grid-template-columns: 32px minmax(0, 1fr); font-size: 12px; }
 .dp-sheet-foot { display: flex; justify-content: flex-end; padding-top: 14px; }
 @media (prefers-reduced-motion: reduce) {
-  .dp-sheet, .dp-view, .dp-hero, .dp-arrow { transition: none; }
+  .dp-sheet, .dp-view, .dp-crt, .dp-hero, .dp-arrow { transition: none; }
 }
