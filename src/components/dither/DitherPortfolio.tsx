@@ -12,8 +12,9 @@ const BAND = 26
 /** Radius that turns the circular wipe into a practically straight vertical edge (phone swipe). */
 const LINE_R = 20_000
 const SOUND_KEY = 'dp-sound'
-/** Phone layout: full-bleed shape, name over it, contact rows in a bottom sheet, swipe to change theme. */
-const PHONE = '(max-width: 819px)'
+/** Phone layout: full-bleed shape, name over it, contact rows in a bottom sheet, swipe to change theme.
+ *  Also short touch screens (phones in landscape), where the desktop column would overflow. Keep in sync with dither.css. */
+const PHONE = '(max-width: 819px), (pointer: coarse) and (max-height: 500px)'
 /** Touch or narrow screens wipe text with a composited clip-path instead of the dithered mask. */
 const COMPACT = '(max-width: 819px), (pointer: coarse)'
 
@@ -55,11 +56,20 @@ function useMedia(query: string) {
     () => matchMedia(query).matches,
   )
 }
-/** Largest font size where the longer of the two name lines still fits the column. */
+/** Largest font size where the longer of the two name lines still fits the column.
+ *  In the phone layout the name sits above the bottom sheet, so on short screens it is also
+ *  capped to the height between its bottom edge and `.dp-ptop`. */
 function fitName(el: HTMLElement) {
   el.style.fontSize = '100px'
   const widest = Math.max(...Array.from(el.children, (c) => c.getBoundingClientRect().width))
-  el.style.fontSize = `${Math.min(180, (100 * el.clientWidth) / widest)}px`
+  let size = Math.min(180, (100 * el.clientWidth) / widest)
+  const top = el.closest('.dp-layer')?.querySelector('.dp-ptop')
+  if (top) {
+    // the hero is anchored to the bottom, so the name's bottom edge stays put and its height scales with the font
+    const box = el.getBoundingClientRect()
+    size = Math.min(size, (100 * (box.bottom - top.getBoundingClientRect().bottom - 12)) / box.height)
+  }
+  el.style.fontSize = `${size}px`
 }
 
 interface LayerState {

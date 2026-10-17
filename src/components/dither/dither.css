@@ -67,9 +67,9 @@
 }
 .dp-snd svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: square; }
 
-/* Phone layout (DitherPortfolio renders it below 820px): full-bleed shape, name over it,
-   contact rows in a bottom sheet. --sheet (0 peeking, 1 open) is set on .dp by the input handler. */
-@media (max-width: 819px) {
+/* Phone layout (DitherPortfolio renders it below 820px and on short touch screens; matches PHONE):
+   full-bleed shape, name over it, contact rows in a bottom sheet. --sheet (0 peeking, 1 open) is set on .dp by the input handler. */
+@media (max-width: 819px), (pointer: coarse) and (max-height: 500px) {
   .dp { touch-action: none; --peek: 76px; }
   .dp-view, .dp-crt { opacity: calc(1 - .6 * var(--sheet, 0)); transition: opacity .35s; }
   .dp-fallback { left: calc(50% - 20svh); top: 12svh; width: 40svh; height: 40svh; }
