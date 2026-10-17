@@ -96,7 +96,8 @@
 }
 .dp.is-sheet-open .dp-sheet { overflow: auto; }
 .dp.is-sheet-drag .dp-sheet, .dp.is-sheet-drag .dp-view, .dp.is-sheet-drag .dp-hero { transition: none; }
-.dp-peek { height: var(--peek); padding-top: 10px; touch-action: none; cursor: grab; }
+.dp-peek { display: block; width: 100%; height: var(--peek); padding-top: 10px; text-align: left; touch-action: none; cursor: grab; }
+.dp-peek:focus-visible { outline: 1.5px solid var(--ink); outline-offset: -4px; }
 .dp-grip { width: 40px; height: 4px; margin: 0 auto 14px; background: var(--ink); }
 .dp-arrow { display: inline-block; transition: transform .35s; }
 .dp.is-sheet-open .dp-arrow { transform: rotate(180deg); }

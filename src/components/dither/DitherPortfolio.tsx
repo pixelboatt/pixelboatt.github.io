@@ -103,6 +103,8 @@ export default function DitherPortfolio() {
   const [sound, setSound] = useState(readSound)
   const [paused, setPaused] = useState(false)
   const [flash, setFlash] = useState<string | null>(null)
+  /** Mirrors the phone sheet once it settles open or closed, for aria-expanded and inert. */
+  const [sheetOpen, setSheetOpen] = useState(false)
   const [hasGL] = useState(() => !!document.createElement('canvas').getContext('webgl'))
   const compact = useMedia(COMPACT)
   const phone = useMedia(PHONE)
@@ -366,6 +368,7 @@ export default function DitherPortfolio() {
       s.sheet = v
       lab.classList.toggle('is-sheet-drag', !animate)
       lab.classList.toggle('is-sheet-open', v > 0.5)
+      if (animate) setSheetOpen(v > 0.5)
       lab.style.setProperty('--sheet', String(v))
     }
     const sheetTravel = () => {
@@ -482,14 +485,21 @@ export default function DitherPortfolio() {
       else if (e.key === 'ArrowRight') go(next(target()), undefined, undefined, true, isPhone() ? 1 : 0)
       else if (e.key === 'ArrowLeft') go(next(target(), -1), undefined, undefined, true, isPhone() ? -1 : 0)
       else if (e.key === 'm' || e.key === 'M') setSound((v) => !v)
-      else if (e.key === ' ') {
+      else if (e.key === 'Escape' && s.sheet > 0) setSheet(0, true)
+      else if (e.key === ' ' && !(e.target as Element).closest?.('a, button')) {
         e.preventDefault()
         setPaused((v) => !v)
       }
     }
     const onResize = () => {
       size()
+      // crossing the COMPACT breakpoint adds or drops the Safari tint strips
+      if (!s.morph) pageColor(s.current)
       render()
+    }
+    // Keyboard activation of the sheet handle (pointer taps toggle it in onUp).
+    const onClick = (e: globalThis.MouseEvent) => {
+      if (e.detail === 0 && (e.target as Element).closest('.dp-grab')) setSheet(s.sheet > 0.5 ? 0 : 1, true)
     }
     const onVisible = () => {
       if (document.hidden) return
@@ -500,6 +510,9 @@ export default function DitherPortfolio() {
     lab.addEventListener('pointermove', onDrag)
     lab.addEventListener('pointerup', onUp)
     lab.addEventListener('pointercancel', onCancel)
+    // capture can also be lost without a pointercancel (e.g. the element is removed); treat it the same
+    lab.addEventListener('lostpointercapture', onCancel)
+    lab.addEventListener('click', onClick)
     view.addEventListener('wheel', onWheel, { passive: false })
     addEventListener('pointermove', onMove)
     addEventListener('keydown', onKey)
@@ -525,6 +538,8 @@ export default function DitherPortfolio() {
       lab.removeEventListener('pointermove', onDrag)
       lab.removeEventListener('pointerup', onUp)
       lab.removeEventListener('pointercancel', onCancel)
+      lab.removeEventListener('lostpointercapture', onCancel)
+      lab.removeEventListener('click', onClick)
       view.removeEventListener('wheel', onWheel)
       removeEventListener('pointermove', onMove)
       removeEventListener('keydown', onKey)
@@ -556,6 +571,7 @@ export default function DitherPortfolio() {
           solid={!hasGL}
           clip={compact}
           phone={phone}
+          sheetOpen={sheetOpen}
           hint={hint}
           sound={sound}
           register={(el) => {
@@ -582,6 +598,7 @@ interface ThemeLayerProps {
   clip: boolean
   /** Render the phone layout: name over the shape, rows in a bottom sheet. */
   phone: boolean
+  sheetOpen: boolean
   hint: string
   sound: boolean
   register: (el: HTMLDivElement | null) => void
@@ -596,7 +613,7 @@ const since = before.period.split(' ')[0]
 const arrow = (period: string) => period.replace(' - ', ' → ').replace('Present', 'present')
 
 /** One full copy of the page chrome and copy, colored by its theme. */
-function ThemeLayer({ theme, incoming, solid, clip, phone, hint, sound, register, onDot, onSound, onExcite }: ThemeLayerProps) {
+function ThemeLayer({ theme, incoming, solid, clip, phone, sheetOpen, hint, sound, register, onDot, onSound, onExcite }: ThemeLayerProps) {
   const t = THEMES[theme]
   const ref = useRef<HTMLDivElement>(null)
   const nameRef = useRef<HTMLHeadingElement>(null)
@@ -696,12 +713,15 @@ function ThemeLayer({ theme, incoming, solid, clip, phone, hint, sound, register
             </div>
           </div>
           <section className="dp-sheet" aria-label="Contact sheet">
-            <div className="dp-peek dp-grab">
+            <button type="button" className="dp-peek dp-grab" aria-expanded={sheetOpen} aria-controls={`dp-sheet-${theme}`}>
               <div className="dp-grip" />
               <div className="dp-top"><span>CONTACT SHEET</span><span className="dp-arrow">↑</span></div>
+            </button>
+            {/* inert while peeking so Tab does not land on links hidden below the screen edge */}
+            <div id={`dp-sheet-${theme}`} inert={!sheetOpen}>
+              {rows}
+              <div className="dp-sheet-foot">{soundButton}</div>
             </div>
-            {rows}
-            <div className="dp-sheet-foot">{soundButton}</div>
           </section>
         </>
       ) : (
