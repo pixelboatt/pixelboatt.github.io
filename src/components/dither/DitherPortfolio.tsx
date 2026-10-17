@@ -352,7 +352,8 @@ export default function DitherPortfolio() {
       setLayers([{ theme: s.current, incoming: false }, { theme: to, incoming: true }])
       kick()
     }
-    const target = () => s.morph?.to ?? s.current
+    // a morph springing back (goal 0) is being dropped, so the next theme counts from the current one
+    const target = () => (s.morph && s.morph.goal !== 0 ? s.morph.to : s.current)
     controls.current = {
       go(to, x, y) {
         go(to, x, y, true, isPhone() ? (to > s.current ? 1 : -1) : 0)
@@ -383,20 +384,23 @@ export default function DitherPortfolio() {
 
     // Desktop: click to morph from the click point, drag to spin with inertia.
     // Phone: swipe sideways to drag a theme in, tap to sweep to the next one, drag the sheet handle.
-    type Down = { x: number; y: number; lx: number; lt: number; vx: number; moved: number; mode: 'view' | 'swipe' | 'sheet'; sheet0: number; travel: number }
+    // One primary pointer per gesture; events from any other pointer are ignored until it ends.
+    type Down = { id: number; x: number; y: number; lx: number; lt: number; vx: number; moved: number; mode: 'view' | 'swipe' | 'sheet'; sheet0: number; travel: number }
     let down: Down | null = null
     const seen = () => { s.lastInput = performance.now() }
     const onDown = (e: PointerEvent) => {
+      // left button or a first touch only: right/middle clicks and extra fingers never start a gesture
+      if (down || !e.isPrimary || e.button !== 0) return
       const el = e.target as Element
       const grab = el.closest('.dp-grab')
-      if (!grab && el.closest('a, button, .dp-rows, .dp-sheet')) return
-      down = { x: e.clientX, y: e.clientY, lx: e.clientX, lt: e.timeStamp, vx: 0, moved: 0, mode: grab ? 'sheet' : 'view', sheet0: s.sheet, travel: grab ? sheetTravel() : 1 }
+      if (!grab && el.closest('a, button, .dp-rows, .dp-sheet, .dp-dock')) return
+      down = { id: e.pointerId, x: e.clientX, y: e.clientY, lx: e.clientX, lt: e.timeStamp, vx: 0, moved: 0, mode: grab ? 'sheet' : 'view', sheet0: s.sheet, travel: grab ? sheetTravel() : 1 }
       lab.setPointerCapture(e.pointerId)
       if (!grab) view.classList.add('is-dragging')
       seen()
     }
     const onDrag = (e: PointerEvent) => {
-      if (!down) return
+      if (down?.id !== e.pointerId) return
       const dx = e.clientX - down.lx
       down.vx = dx / Math.max(1, e.timeStamp - down.lt)
       down.lx = e.clientX
@@ -424,10 +428,10 @@ export default function DitherPortfolio() {
       }
     }
     const onUp = (e: PointerEvent) => {
-      view.classList.remove('is-dragging')
       const d = down
+      if (d?.id !== e.pointerId) return
+      view.classList.remove('is-dragging')
       down = null
-      if (!d) return
       if (d.mode === 'sheet') {
         // a tap toggles; a drag past a fifth of the way flips it, otherwise it snaps back
         const flip = d.moved <= 6 || Math.abs(s.sheet - d.sheet0) > 0.2
@@ -454,7 +458,8 @@ export default function DitherPortfolio() {
       if (isPhone() && s.sheet > 0.5) setSheet(0, true)
       else go(next(target()), e.clientX, e.clientY)
     }
-    const onCancel = () => {
+    const onCancel = (e: PointerEvent) => {
+      if (down?.id !== e.pointerId) return
       view.classList.remove('is-dragging')
       if (down?.mode === 'swipe' && s.morph?.held) {
         s.morph.held = false
