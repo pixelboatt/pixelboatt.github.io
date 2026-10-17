@@ -498,8 +498,11 @@ export default function DitherPortfolio() {
       size()
       // crossing the COMPACT breakpoint adds or drops the Safari tint strips
       if (!s.morph) pageColor(s.current)
-      // desktop has no sheet; a stale open one would also block the idle cycle
-      if (!isPhone() && s.sheet > 0) setSheet(0, true)
+      // desktop has no sheet; a stale open one (or a drag still in progress) would block the idle cycle
+      if (!isPhone()) {
+        if (down?.mode === 'sheet') down = null
+        if (s.sheet > 0) setSheet(0, true)
+      }
       render()
     }
     // Keyboard activation of the sheet handle (pointer taps toggle it in onUp).
