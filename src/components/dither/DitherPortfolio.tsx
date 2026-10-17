@@ -275,14 +275,15 @@ export default function DitherPortfolio() {
       tint('bottom', mixHex(was, will, covered(x, y, m.r, r.height, r.width)))
       const into = layerEls.current.get(m.to), from = layerEls.current.get(s.current)
       if (m.clip) {
-        // Hard-edged circle and its complement: the compositor clips them without repainting the text.
-        const c = Math.max(0, m.r)
+        // Hard-edged circles: the compositor clips them without repainting the text. They overlap
+        // across the canvas's dithered band, so both themes' text shows there, as with the mask.
+        const c = Math.max(0, m.r + BAND), hole = Math.max(0, m.r - BAND)
         if (into) {
           into.style.maskImage = 'none'
           into.style.clipPath = `circle(${c}px at ${x}px ${y}px)`
         }
-        if (from) from.style.clipPath = c > 0
-          ? `path(evenodd,"M0 0H${r.width}V${r.height}H0Z M${x - c} ${y}a${c} ${c} 0 1 0 ${2 * c} 0a${c} ${c} 0 1 0 ${-2 * c} 0Z")`
+        if (from) from.style.clipPath = hole > 0
+          ? `path(evenodd,"M0 0H${r.width}V${r.height}H0Z M${x - hole} ${y}a${hole} ${hole} 0 1 0 ${2 * hole} 0a${hole} ${hole} 0 1 0 ${-2 * hole} 0Z")`
           : 'none'
         return
       }
@@ -765,6 +766,8 @@ function ThemeLayer({ theme, incoming, solid, clip, phone, sheetOpen, hint, soun
       {solid && <div className="dp-fallback" />}
       {/* inside the layer so the wipe masks it with the rest of the theme */}
       {t.crt && !solid && <div className="dp-crt" />}
+      {/* dims the shape under the open sheet in this theme's paper, so the wipe recolors it too */}
+      {phone && !solid && <div className="dp-dim" />}
       {phone ? (
         <>
           <div className="dp-ptop">
