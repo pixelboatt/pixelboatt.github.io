@@ -17,6 +17,8 @@ const SOUND_KEY = 'dp-sound'
 const PHONE = '(max-width: 819px), (pointer: coarse) and (max-height: 500px)'
 /** Touch or narrow screens wipe text with a composited clip-path instead of the dithered mask. */
 const COMPACT = '(max-width: 819px), (pointer: coarse)'
+/** Controls in a theme layer; every layer renders the same ones in the same order. */
+const FOCUSABLE = 'a[href], button'
 
 const pad = (n: number) => String(n).padStart(2, '0')
 const lerp = (a: number, b: number, k: number) => a + (b - a) * k
@@ -127,6 +129,8 @@ export default function DitherPortfolio() {
   const controls = useRef<Controls | null>(null)
   const soundRef = useRef(sound)
   const pausedRef = useRef(paused)
+  /** Index among the outgoing layer's links and buttons that had focus, restored in the layer that replaces it; -1 for none. */
+  const focusAt = useRef(-1)
 
   useEffect(() => {
     soundRef.current = sound
@@ -147,6 +151,15 @@ export default function DitherPortfolio() {
     const sheet = (t: number) => layerEls.current.get(t)?.querySelector('.dp-sheet')
     const into = sheet(layers[1].theme)
     if (into) into.scrollTop = sheet(layers[0].theme)?.scrollTop ?? 0
+  }, [layers])
+
+  // Unmounting the outgoing layer drops keyboard focus to <body>; move it to the same control in the current layer.
+  useLayoutEffect(() => {
+    const i = focusAt.current
+    if (i < 0) return
+    focusAt.current = -1
+    const el = layerEls.current.get(layers[0].theme)?.querySelectorAll<HTMLElement>(FOCUSABLE)[i]
+    if (el && el !== document.activeElement) el.focus({ preventScroll: true })
   }, [layers])
 
   // A layout effect so the first painted frame already has the page color and a rendered canvas.
@@ -278,10 +291,16 @@ export default function DitherPortfolio() {
       if (into) into.style.maskImage = `radial-gradient(circle at ${x}px ${y}px,#000 ${a}px,#0000 ${a}px),${band},${bayerTile(true)}`
       if (from) from.style.maskImage = `radial-gradient(circle at ${x}px ${y}px,#0000 ${b}px,#000 ${b}px),${band},${bayerTile(false)}`
     }
+    /** Remember which control in layer `theme` has focus, before that layer unmounts. */
+    const keepFocus = (theme: number) => {
+      const all = layerEls.current.get(theme)?.querySelectorAll(FOCUSABLE)
+      focusAt.current = all ? Array.prototype.indexOf.call(all, document.activeElement) : -1
+    }
     const finish = () => {
       const m = s.morph
       if (!m) return
       s.morph = null
+      keepFocus(s.current)
       s.current = m.to
       const el = layerEls.current.get(m.to)
       // 'none', not '': until React drops data-incoming, the CSS rule for it would hide the layer for a frame
@@ -348,6 +367,7 @@ export default function DitherPortfolio() {
       s.lastInput = performance.now()
       if (withSound && soundRef.current) chirp(to, THEMES.length)
       if (reduce || !renderer) {
+        keepFocus(s.current)
         s.current = to
         setLayers([{ theme: to, incoming: false }])
         chrome(to)
@@ -499,7 +519,8 @@ export default function DitherPortfolio() {
     }
     const onKey = (e: KeyboardEvent) => {
       seen()
-      if (e.metaKey || e.ctrlKey || e.altKey) return
+      // holding a key would restart the morph (flashing light and dark themes) or flip a toggle on every repeat
+      if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return
       const n = Number(e.key)
       if (n >= 1 && n <= THEMES.length) controls.current?.go(n - 1)
       else if (e.key === 'ArrowRight') go(next(target()), undefined, undefined, true, isPhone() ? 1 : 0)
@@ -562,6 +583,9 @@ export default function DitherPortfolio() {
     // Nobody touched anything for a while: morph on our own, silently.
     const idle = window.setInterval(() => {
       if (reduce || pausedRef.current || s.morph || down || s.sheet > 0 || document.hidden || performance.now() - s.lastInput < IDLE_MS) return
+      // the pointer resting on, or keyboard focus in, the controls is someone reading, not idle;
+      // :focus-visible so a dot left focused by a mouse click does not stop the cycle for good
+      if (lab.querySelector('.dp-rows:hover, .dp-dock:hover, .dp-rows :focus-visible, .dp-dock :focus-visible')) return
       go(next(s.current), ...shapeCenter(), false)
     }, 500)
 
