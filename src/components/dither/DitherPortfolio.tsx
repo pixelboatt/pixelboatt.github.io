@@ -589,8 +589,9 @@ export default function DitherPortfolio() {
     const idle = window.setInterval(() => {
       if (reduce || pausedRef.current || s.morph || down || s.sheet > 0 || document.hidden || performance.now() - s.lastInput < IDLE_MS) return
       // the pointer resting on, or keyboard focus in, the controls is someone reading, not idle;
-      // :focus-visible so a dot left focused by a mouse click does not stop the cycle for good
-      if (lab.querySelector('.dp-rows:hover, .dp-dock:hover, .dp-pdock:hover, .dp-rows :focus-visible, .dp-dock :focus-visible, .dp-pdock :focus-visible')) return
+      // :focus-visible so a dot left focused by a mouse click does not stop the cycle for good;
+      // no :hover on the phone dock, where a tap leaves it stuck on touch screens
+      if (lab.querySelector('.dp-rows:hover, .dp-dock:hover, .dp-rows :focus-visible, .dp-dock :focus-visible, .dp-pdock :focus-visible')) return
       go(next(s.current), ...shapeCenter(), false)
     }, 500)
 
