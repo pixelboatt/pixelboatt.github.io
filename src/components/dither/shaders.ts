@@ -5,7 +5,7 @@ export const VERTEX = 'attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}'
 export const SCENE = /* glsl */ `
 precision highp float;
 uniform vec2 uRes;uniform float uTime;uniform vec2 uMouse;uniform vec2 uRot;
-uniform int uA;uniform int uB;uniform float uK;uniform float uDist;uniform float uOff;
+uniform int uA;uniform int uB;uniform float uK;uniform float uDist;uniform vec2 uOff;
 
 mat2 rot(float a){float c=cos(a),s=sin(a);return mat2(c,-s,s,c);}
 float smin(float a,float b,float k){float h=clamp(.5+.5*(b-a)/k,0.,1.);return mix(b,a,h)-k*h*(1.-h);}
@@ -41,7 +41,7 @@ vec3 nrm(vec3 p){vec2 e=vec2(.0015,-.0015);
   return normalize(e.xyy*map(p+e.xyy)+e.yyx*map(p+e.yyx)+e.yxy*map(p+e.yxy)+e.xxx*map(p+e.xxx));}
 
 void main(){
-  vec2 uv=(gl_FragCoord.xy-.5*uRes)/uRes.y;uv.x-=uOff;
+  vec2 uv=(gl_FragCoord.xy-.5*uRes)/uRes.y;uv-=uOff;
   vec3 ro=vec3(0.,0.,-uDist),rd=normalize(vec3(uv,1.7));
   float t=0.,steps=0.;bool hit=false;
   for(int i=0;i<110;i++){float d=map(ro+rd*t);if(d<.0012){hit=true;break;}t+=d;steps+=1.;if(t>uDist+3.)break;}
