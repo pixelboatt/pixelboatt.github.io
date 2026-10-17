@@ -42,24 +42,32 @@ type Uniforms = Record<string, WebGLUniformLocation | null>
 
 const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
 
-/** Two-pass WebGL renderer for the dithered hero shape. Returns null without WebGL. */
+/**
+ * Two-pass WebGL renderer for the dithered hero shape. Returns null when WebGL can't draw it:
+ * no context, no highp floats in fragment shaders, or a shader that fails to compile or link.
+ * Called again on `webglcontextrestored` to rebuild on the restored context.
+ */
 export function createRenderer(canvas: HTMLCanvasElement): Renderer | null {
   const gl = canvas.getContext('webgl', { antialias: false })
-  if (!gl) return null
+  if (!gl || !gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT)?.precision) return null
 
   const shaders: WebGLShader[] = []
+  const programs: WebGLProgram[] = []
+  /** Compiles and links one pass; null (after logging why) if either step fails. */
   const program = (fragment: string) => {
     const p = gl.createProgram()
+    programs.push(p)
     for (const [type, src] of [[gl.VERTEX_SHADER, VERTEX], [gl.FRAGMENT_SHADER, fragment]] as const) {
       const s = gl.createShader(type)!
+      shaders.push(s)
       gl.shaderSource(s, src)
       gl.compileShader(s)
-      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(s))
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) return void console.error(gl.getShaderInfoLog(s))
       gl.attachShader(p, s)
-      shaders.push(s)
     }
     gl.bindAttribLocation(p, 0, 'p')
     gl.linkProgram(p)
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) return void console.error(gl.getProgramInfoLog(p))
     const u: Uniforms = {}
     const count = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS) as number
     for (let i = 0; i < count; i++) {
@@ -69,7 +77,12 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer | null {
     return { p, u }
   }
   const scene = program(SCENE)
-  const dither = program(DITHER)
+  const dither = scene && program(DITHER)
+  if (!scene || !dither) {
+    shaders.forEach((s) => gl.deleteShader(s))
+    programs.forEach((p) => gl.deleteProgram(p))
+    return null
+  }
 
   const buffer = gl.createBuffer()
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer)

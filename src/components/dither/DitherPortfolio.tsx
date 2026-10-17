@@ -105,7 +105,8 @@ export default function DitherPortfolio() {
   const [flash, setFlash] = useState<string | null>(null)
   /** Mirrors the phone sheet once it settles open or closed, for aria-expanded and inert. */
   const [sheetOpen, setSheetOpen] = useState(false)
-  const [hasGL] = useState(() => !!document.createElement('canvas').getContext('webgl'))
+  /** Set once the renderer can't be created (no WebGL, shader or precision failure); layers show the static shape. */
+  const [solid, setSolid] = useState(false)
   const compact = useMedia(COMPACT)
   const phone = useMedia(PHONE)
 
@@ -142,7 +143,10 @@ export default function DitherPortfolio() {
   useLayoutEffect(() => {
     const lab = labRef.current!, view = viewRef.current!, canvas = canvasRef.current!
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
-    const renderer = hasGL ? createRenderer(canvas) : null
+    let renderer = createRenderer(canvas)
+    // whether WebGL works is only known once the real canvas tries; this layout effect re-renders before paint
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (!renderer) setSolid(true)
     const s = {
       current: initial,
       morph: null as Morph | null,
@@ -524,6 +528,21 @@ export default function DitherPortfolio() {
     addEventListener('keydown', onKey)
     addEventListener('resize', onResize)
     document.addEventListener('visibilitychange', onVisible)
+    // The browser can drop the context (iOS after app switching); preventDefault lets it be restored.
+    const onLost = (e: Event) => {
+      e.preventDefault()
+      renderer = null
+    }
+    const onRestored = () => {
+      renderer = createRenderer(canvas)
+      if (!renderer) return setSolid(true)
+      s.w = s.h = 0
+      size()
+      render()
+      kick()
+    }
+    canvas.addEventListener('webglcontextlost', onLost)
+    canvas.addEventListener('webglcontextrestored', onRestored)
 
     // Nobody touched anything for a while: morph on our own, silently.
     const idle = window.setInterval(() => {
@@ -551,11 +570,13 @@ export default function DitherPortfolio() {
       removeEventListener('keydown', onKey)
       removeEventListener('resize', onResize)
       document.removeEventListener('visibilitychange', onVisible)
+      canvas.removeEventListener('webglcontextlost', onLost)
+      canvas.removeEventListener('webglcontextrestored', onRestored)
       renderer?.dispose()
       tints.forEach((el) => el.remove())
       controls.current = null
     }
-  }, [initial, hasGL])
+  }, [initial])
 
   const hint = flash ?? (paused ? 'PAUSED · SPACE TO PLAY' : phone ? '← SWIPE →' : compact ? 'TAP TO MORPH · DRAG TO SPIN' : 'CLICK TO MORPH · DRAG TO SPIN · SCROLL FOR GRAIN')
   const toggleSound = () => {
@@ -574,7 +595,7 @@ export default function DitherPortfolio() {
           key={theme}
           theme={theme}
           incoming={incoming}
-          solid={!hasGL}
+          solid={solid}
           clip={compact}
           phone={phone}
           sheetOpen={sheetOpen}
