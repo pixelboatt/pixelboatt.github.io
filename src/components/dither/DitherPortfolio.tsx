@@ -366,6 +366,9 @@ export default function DitherPortfolio() {
     /** Bottom sheet position, 0 peeking to 1 open. CSS reads --sheet on the root; `animate` eases it there. */
     const setSheet = (v: number, animate: boolean) => {
       s.sheet = v
+      // closing makes the rows inert, so keep keyboard focus on the handle instead of dropping it to <body>
+      const el = layerEls.current.get(s.current)?.querySelector('.dp-sheet')
+      if (v <= 0.5 && el?.contains(document.activeElement)) el.querySelector<HTMLElement>('.dp-grab')?.focus({ preventScroll: true })
       lab.classList.toggle('is-sheet-drag', !animate)
       lab.classList.toggle('is-sheet-open', v > 0.5)
       if (animate) setSheetOpen(v > 0.5)
@@ -456,7 +459,7 @@ export default function DitherPortfolio() {
         s.morph.goal = 0
         kick()
       }
-      if (down?.mode === 'sheet') setSheet(Math.round(s.sheet), true)
+      if (down?.mode === 'sheet') setSheet(Math.round(down.sheet0), true)
       down = null
     }
     const onMove = (e: PointerEvent) => {
@@ -495,6 +498,8 @@ export default function DitherPortfolio() {
       size()
       // crossing the COMPACT breakpoint adds or drops the Safari tint strips
       if (!s.morph) pageColor(s.current)
+      // desktop has no sheet; a stale open one would also block the idle cycle
+      if (!isPhone() && s.sheet > 0) setSheet(0, true)
       render()
     }
     // Keyboard activation of the sheet handle (pointer taps toggle it in onUp).
