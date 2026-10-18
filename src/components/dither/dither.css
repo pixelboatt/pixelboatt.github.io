@@ -47,8 +47,9 @@
 .dp-lbl.bl { right: 16px; bottom: 24px; }
 /* Edge strips Safari 26+ tints its bars from; DitherPortfolio appends them to <body> and recolors them with the wipe.
    They must stay hit-testable (no pointer-events: none) and taller than 10px, or Safari looks past them.
-   z-index -1 keeps them under .dp, so they neither cover the canvas nor take taps at the screen edge. */
-.dp-tint { position: fixed; left: 0; right: 0; height: 12px; z-index: -1; }
+   They must also sit above .dp: Safari tints from the topmost element at each edge and does not
+   re-tint when .dp's own background changes. The 12px they cover is mostly behind the bars anyway. */
+.dp-tint { position: fixed; left: 0; right: 0; height: 12px; z-index: 1; }
 .dp-tint.top { top: 0; }
 .dp-tint.bottom { bottom: 0; }
 .dp-fallback {
